@@ -11,12 +11,15 @@ import type {
 } from './types';
 import { getInitialState } from './mockData';
 import { analyzeComplaint } from './ai';
+import { signUp as authSignUp, signIn as authSignIn, saveSession, loadSession, clearSession, accountToUser, type Account } from './auth';
 
 const STORAGE_KEY = 'jansamvad_state_v1';
 
 interface StoreContextValue extends AppState {
   login: (user: User) => void;
   logout: () => void;
+  signUp: (name: string, email: string, password: string, role: Role) => { ok: true; account: Account } | { ok: false; error: string };
+  signIn: (email: string, password: string) => { ok: true; user: User } | { ok: false; error: string };
   addComplaint: (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => Complaint;
   updateComplaint: (id: string, patch: Partial<Complaint>) => void;
   addTimelineEvent: (id: string, status: string, actor: string, note?: string) => void;
@@ -39,6 +42,11 @@ interface StoreContextValue extends AppState {
 const StoreContext = createContext<StoreContextValue | null>(null);
 
 function loadState(): AppState {
+  const base = getInitialState();
+  const session = loadSession();
+  if (session) {
+    return { ...base, currentUser: session };
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -48,7 +56,7 @@ function loadState(): AppState {
   } catch {
     // ignore
   }
-  return getInitialState();
+  return base;
 }
 
 let complaintCounter = 1024;
@@ -79,11 +87,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback((user: User) => {
+    saveSession(user);
     setState((s) => ({ ...s, currentUser: user }));
   }, []);
 
   const logout = useCallback(() => {
+    clearSession();
     setState((s) => ({ ...s, currentUser: null }));
+  }, []);
+
+  const signUp = useCallback((name: string, email: string, password: string, role: Role) => {
+    return authSignUp(name, email, password, role);
+  }, []);
+
+  const signIn = useCallback((email: string, password: string) => {
+    const result = authSignIn(email, password);
+    if (result.ok) {
+      const user = accountToUser(result.account);
+      saveSession(user);
+      setState((s) => ({ ...s, currentUser: user }));
+      return { ok: true as const, user };
+    }
+    return { ok: false as const, error: result.error };
   }, []);
 
   const addNotification = useCallback((n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
@@ -349,6 +374,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     dismissToast,
     login,
     logout,
+    signUp,
+    signIn,
     addComplaint,
     updateComplaint,
     addTimelineEvent,

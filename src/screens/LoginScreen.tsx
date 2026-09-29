@@ -1,174 +1,288 @@
 import { useState } from 'react';
-import { Building2, User, Shield, HardHat, Megaphone, ArrowRight, ArrowLeft, Mail, Lock, Sparkles } from 'lucide-react';
+import {
+  Building2, User, Shield, HardHat, Megaphone, ArrowRight, Mail, Lock, UserPlus,
+  LogIn, AlertCircle, CheckCircle2,
+} from 'lucide-react';
 import { useStore } from '@/lib/store';
-import { getDemoUsers } from '@/lib/mockData';
 import type { Role } from '@/lib/types';
 
-const roleConfig: { role: Role; title: string; desc: string; icon: typeof User; color: string; bgColor: string; borderColor: string }[] = [
-  { role: 'citizen', title: 'Citizen', desc: 'Report civic complaints and earn rewards', icon: User, color: 'text-blue-600', bgColor: 'bg-blue-50 hover:bg-blue-100', borderColor: 'border-blue-200' },
-  { role: 'authority', title: 'Municipal Authority', desc: 'Verify, assign and manage complaints', icon: Shield, color: 'text-teal-600', bgColor: 'bg-teal-50 hover:bg-teal-100', borderColor: 'border-teal-200' },
-  { role: 'workforce', title: 'Field Workforce', desc: 'Resolve assigned tasks in the field', icon: HardHat, color: 'text-orange-600', bgColor: 'bg-orange-50 hover:bg-orange-100', borderColor: 'border-orange-200' },
-  { role: 'influencer', title: 'Influencer / Reporter', desc: 'Run campaigns and drive awareness', icon: Megaphone, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50 hover:bg-fuchsia-100', borderColor: 'border-fuchsia-200' },
+type Mode = 'signin' | 'signup';
+
+const roleOptions: { role: Role; title: string; icon: typeof User; color: string; ring: string }[] = [
+  { role: 'citizen', title: 'Citizen', icon: User, color: 'text-blue-600', ring: 'ring-blue-500' },
+  { role: 'authority', title: 'Municipal Authority', icon: Shield, color: 'text-teal-600', ring: 'ring-teal-500' },
+  { role: 'workforce', title: 'Field Workforce', icon: HardHat, color: 'text-orange-600', ring: 'ring-orange-500' },
+  { role: 'influencer', title: 'Influencer / Reporter', icon: Megaphone, color: 'text-fuchsia-600', ring: 'ring-fuchsia-500' },
 ];
 
-type Step = 'landing' | 'signin' | 'role';
-
 export default function LoginScreen() {
-  const { login } = useStore();
-  const demoUsers = getDemoUsers();
-  const [step, setStep] = useState<Step>('landing');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { signIn, signUp, toast } = useStore();
+  const [mode, setMode] = useState<Mode>('signin');
+
+  // Sign In fields
+  const [siEmail, setSiEmail] = useState('');
+  const [siPassword, setSiPassword] = useState('');
+
+  // Sign Up fields
+  const [suName, setSuName] = useState('');
+  const [suEmail, setSuEmail] = useState('');
+  const [suPassword, setSuPassword] = useState('');
+  const [suConfirm, setSuConfirm] = useState('');
+  const [suRole, setSuRole] = useState<Role | ''>('');
+
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
-    setStep('role');
+    setError('');
+    if (!siEmail.trim() || !siPassword) {
+      setError('Please enter your email and password');
+      return;
+    }
+    const result = signIn(siEmail.trim(), siPassword);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    toast(`Welcome back, ${result.user.name}!`, 'success');
+  };
+
+  const handleSignUp = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!suName.trim() || !suEmail.trim() || !suPassword || !suConfirm) {
+      setError('Please fill in all fields');
+      return;
+    }
+    if (suPassword !== suConfirm) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (suPassword.length < 4) {
+      setError('Password must be at least 4 characters');
+      return;
+    }
+    if (!suRole) {
+      setError('Please select a role');
+      return;
+    }
+    const result = signUp(suName.trim(), suEmail.trim(), suPassword, suRole as Role);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setSuccess('Account created successfully! Please sign in.');
+    setSuName('');
+    setSuEmail('');
+    setSuPassword('');
+    setSuConfirm('');
+    setSuRole('');
+    setMode('signin');
+    setSiEmail(result.account.email);
+    toast('Account created! Please sign in.', 'success');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/30 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full">
+      <div className="max-w-md w-full">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center gap-3 mb-3">
             <div className="p-3 bg-gradient-to-br from-blue-600 to-teal-600 rounded-2xl shadow-lg">
               <Building2 className="w-8 h-8 text-white" />
             </div>
             <div className="text-left">
               <h1 className="text-3xl font-bold text-gray-900 tracking-tight">JanSamvad</h1>
-              <p className="text-sm text-gray-500">AI-Powered Multimodal Municipal Corporation Platform</p>
+              <p className="text-sm text-gray-500">AI-Powered Municipal Corporation Platform</p>
             </div>
           </div>
-          {step === 'landing' && (
-            <p className="text-gray-500 max-w-xl mx-auto mt-4">
-              Connecting Citizens, Municipal Authority, Field Workforce, and Influencers to improve civic complaint participation and resolution.
-            </p>
-          )}
+          <p className="text-sm text-gray-500 max-w-sm mx-auto">
+            Connecting citizens, authorities, field workforce, and influencers for better civic services.
+          </p>
         </div>
 
-        {/* Step: Landing */}
-        {step === 'landing' && (
-          <div className="max-w-md mx-auto">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-teal-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
-                <Sparkles className="w-8 h-8 text-blue-600" />
+        {/* Card */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-7">
+          {/* Tabs */}
+          <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6">
+            <button
+              onClick={() => { setMode('signin'); setError(''); setSuccess(''); }}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                mode === 'signin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <LogIn className="w-4 h-4" /> Sign In
+            </button>
+            <button
+              onClick={() => { setMode('signup'); setError(''); setSuccess(''); }}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                mode === 'signup' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" /> Sign Up
+            </button>
+          </div>
+
+          {/* Error / Success banners */}
+          {error && (
+            <div className="mb-4 flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-rose-700">{error}</p>
+            </div>
+          )}
+          {success && (
+            <div className="mb-4 flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-emerald-700">{success}</p>
+            </div>
+          )}
+
+          {/* Sign In Form */}
+          {mode === 'signin' && (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Email</label>
+                <div className="mt-1 relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="email"
+                    value={siEmail}
+                    onChange={(e) => setSiEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-gray-900">Welcome to JanSamvad</h2>
-              <p className="text-sm text-gray-500 mt-2 mb-6">
-                Sign in to report complaints, track resolution, run campaigns, and manage civic services across Pimpri-Chinchwad.
-              </p>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Password</label>
+                <div className="mt-1 relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="password"
+                    value={siPassword}
+                    onChange={(e) => setSiPassword(e.target.value)}
+                    placeholder="Your password"
+                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
               <button
-                onClick={() => setStep('signin')}
+                type="submit"
                 className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl font-medium text-sm hover:opacity-90 flex items-center justify-center gap-2 transition-opacity"
               >
-                Get Started <ArrowRight className="w-4 h-4" />
+                Sign In <ArrowRight className="w-4 h-4" />
               </button>
-              <p className="text-xs text-gray-400 mt-4">
-                Demo platform — no real account needed
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Step: Sign In */}
-        {step === 'signin' && (
-          <div className="max-w-md mx-auto">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-              <div className="mb-6">
-                <button
-                  onClick={() => setStep('landing')}
-                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4"
-                >
-                  <ArrowLeft className="w-4 h-4" /> Back
+              <p className="text-center text-sm text-gray-500">
+                Don't have an account?{' '}
+                <button type="button" onClick={() => { setMode('signup'); setError(''); setSuccess(''); }} className="text-blue-600 font-medium hover:underline">
+                  Sign up
                 </button>
-                <h2 className="text-xl font-bold text-gray-900">Sign In</h2>
-                <p className="text-sm text-gray-500 mt-1">Enter any email and password to continue</p>
-              </div>
+              </p>
+            </form>
+          )}
 
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <div className="mt-1 relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
+          {/* Sign Up Form */}
+          {mode === 'signup' && (
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Full Name</label>
+                <div className="mt-1 relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={suName}
+                    onChange={(e) => setSuName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
                 </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Email</label>
+                <div className="mt-1 relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="email"
+                    value={suEmail}
+                    onChange={(e) => setSuEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-gray-700">Password</label>
                   <div className="mt-1 relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Any password works"
-                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={suPassword}
+                      onChange={(e) => setSuPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                     />
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl font-medium text-sm hover:opacity-90 flex items-center justify-center gap-2 transition-opacity"
-                >
-                  Continue <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
-
-              <p className="text-center text-xs text-gray-400 mt-4">
-                Simulated authentication — no credentials are verified
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Step: Select Role */}
-        {step === 'role' && (
-          <>
-            <div className="text-center mb-6">
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Confirm</label>
+                  <div className="mt-1 relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="password"
+                      value={suConfirm}
+                      onChange={(e) => setSuConfirm(e.target.value)}
+                      placeholder="Confirm"
+                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Select Role</label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {roleOptions.map((opt) => {
+                    const Icon = opt.icon;
+                    const selected = suRole === opt.role;
+                    return (
+                      <button
+                        key={opt.role}
+                        type="button"
+                        onClick={() => setSuRole(opt.role)}
+                        className={`flex items-center gap-2 p-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
+                          selected
+                            ? `border-transparent ring-2 ${opt.ring} bg-gray-50`
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <Icon className={`w-4 h-4 ${opt.color}`} />
+                        {opt.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <button
-                onClick={() => setStep('signin')}
-                className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3"
+                type="submit"
+                className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl font-medium text-sm hover:opacity-90 flex items-center justify-center gap-2 transition-opacity"
               >
-                <ArrowLeft className="w-4 h-4" /> Back
+                Create Account <ArrowRight className="w-4 h-4" />
               </button>
-              <h2 className="text-xl font-bold text-gray-900">Select Your Role</h2>
-              <p className="text-sm text-gray-500 mt-1">Choose a demo account to enter its dashboard</p>
-            </div>
+              <p className="text-center text-sm text-gray-500">
+                Already have an account?{' '}
+                <button type="button" onClick={() => { setMode('signin'); setError(''); setSuccess(''); }} className="text-blue-600 font-medium hover:underline">
+                  Sign in
+                </button>
+              </p>
+            </form>
+          )}
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {roleConfig.map((cfg, idx) => {
-                const Icon = cfg.icon;
-                const user = demoUsers[idx];
-                return (
-                  <button
-                    key={cfg.role}
-                    onClick={() => login(user)}
-                    className={`group text-left p-6 rounded-2xl border-2 transition-all ${cfg.bgColor} ${cfg.borderColor} hover:shadow-lg hover:-translate-y-0.5`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className={`p-3 rounded-xl bg-white shadow-sm ${cfg.color}`}>
-                        <Icon className="w-7 h-7" />
-                      </div>
-                      <ArrowRight className="w-5 h-5 text-gray-300 group-hover:text-gray-500 transition-colors" />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 mt-4">{cfg.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{cfg.desc}</p>
-                    <div className="mt-4 pt-3 border-t border-gray-200/60">
-                      <p className="text-xs text-gray-400">Demo account</p>
-                      <p className="text-sm font-medium text-gray-700">{user.name}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
+        <p className="text-center text-xs text-gray-400 mt-5">
+          JanSamvad uses simulated authentication for this prototype
+        </p>
       </div>
     </div>
   );
