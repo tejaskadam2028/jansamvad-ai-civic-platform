@@ -35,7 +35,7 @@ export function findAccountByEmail(email: string): Account | undefined {
   return loadAccounts().find((a) => a.email.toLowerCase() === email.toLowerCase());
 }
 
-export function signUp(name: string, email: string, password: string, role: Role): { ok: true; account: Account } | { ok: false; error: string } {
+export function signUp(name: string, email: string, password: string, role: Role, phone: string): { ok: true; account: Account } | { ok: false; error: string } {
   const accounts = loadAccounts();
   if (accounts.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
     return { ok: false, error: 'An account with this email already exists' };
@@ -46,7 +46,7 @@ export function signUp(name: string, email: string, password: string, role: Role
     email,
     password,
     role,
-    phone: '',
+    phone,
     area: 'Pimpri-Chinchwad',
   };
   accounts.push(account);
@@ -96,4 +96,12 @@ export function accountToUser(account: Account): User {
     phone: account.phone,
     area: account.area,
   };
+}
+
+export function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export function validateMobile(phone: string): boolean {
+  return /^[6-9]\d{9}$/.test(phone);
 }

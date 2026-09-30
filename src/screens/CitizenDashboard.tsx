@@ -662,13 +662,14 @@ function ProfileView() {
           </div>
           <div>
             <h3 className="text-xl font-bold text-gray-900">{currentUser.name}</h3>
-            <p className="text-sm text-gray-500">Citizen · {currentUser.area}</p>
+            <p className="text-sm text-gray-500 capitalize">{currentUser.role} · {currentUser.area}</p>
           </div>
         </div>
         <div className="mt-6 grid grid-cols-2 gap-4">
           <div className="p-3 bg-gray-50 rounded-lg"><p className="text-xs text-gray-400">Email</p><p className="text-sm font-medium text-gray-900">{currentUser.email}</p></div>
           <div className="p-3 bg-gray-50 rounded-lg"><p className="text-xs text-gray-400">Phone</p><p className="text-sm font-medium text-gray-900">{currentUser.phone}</p></div>
           <div className="p-3 bg-gray-50 rounded-lg"><p className="text-xs text-gray-400">Area</p><p className="text-sm font-medium text-gray-900">{currentUser.area}</p></div>
+          <div className="p-3 bg-gray-50 rounded-lg"><p className="text-xs text-gray-400">Role</p><p className="text-sm font-medium text-gray-900 capitalize">{currentUser.role}</p></div>
           <div className="p-3 bg-gray-50 rounded-lg"><p className="text-xs text-gray-400">Level</p><p className="text-sm font-medium text-gray-900">{level.title} (Lv {level.level})</p></div>
         </div>
       </div>

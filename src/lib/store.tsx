@@ -18,7 +18,7 @@ const STORAGE_KEY = 'jansamvad_state_v1';
 interface StoreContextValue extends AppState {
   login: (user: User) => void;
   logout: () => void;
-  signUp: (name: string, email: string, password: string, role: Role) => { ok: true; account: Account } | { ok: false; error: string };
+  signUp: (name: string, email: string, password: string, role: Role, phone: string) => { ok: true; account: Account } | { ok: false; error: string };
   signIn: (email: string, password: string) => { ok: true; user: User } | { ok: false; error: string };
   addComplaint: (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => Complaint;
   updateComplaint: (id: string, patch: Partial<Complaint>) => void;
@@ -101,8 +101,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, currentUser: null }));
   }, []);
 
-  const signUp = useCallback((name: string, email: string, password: string, role: Role) => {
-    return authSignUp(name, email, password, role);
+  const signUp = useCallback((name: string, email: string, password: string, role: Role, phone: string) => {
+    return authSignUp(name, email, password, role, phone);
   }, []);
 
   const signIn = useCallback((email: string, password: string) => {

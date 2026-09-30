@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import {
   Building2, User, Shield, HardHat, Megaphone, ArrowRight, Mail, Lock, UserPlus,
-  LogIn, AlertCircle, CheckCircle2,
+  LogIn, AlertCircle, CheckCircle2, Phone,
 } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { validateEmail, validateMobile } from '@/lib/auth';
 import type { Role } from '@/lib/types';
 
 type Mode = 'signin' | 'signup';
 
-const roleOptions: { role: Role; title: string; icon: typeof User; color: string; ring: string }[] = [
-  { role: 'citizen', title: 'Citizen', icon: User, color: 'text-blue-600', ring: 'ring-blue-500' },
-  { role: 'authority', title: 'Municipal Authority', icon: Shield, color: 'text-teal-600', ring: 'ring-teal-500' },
-  { role: 'workforce', title: 'Field Workforce', icon: HardHat, color: 'text-orange-600', ring: 'ring-orange-500' },
-  { role: 'influencer', title: 'Influencer / Reporter', icon: Megaphone, color: 'text-fuchsia-600', ring: 'ring-fuchsia-500' },
-];
+interface FieldErrors {
+  name?: string;
+  mobile?: string;
+  email?: string;
+  password?: string;
+  confirm?: string;
+}
 
 export default function LoginScreen() {
   const { signIn, signUp, toast } = useStore();
@@ -25,13 +27,21 @@ export default function LoginScreen() {
 
   // Sign Up fields
   const [suName, setSuName] = useState('');
+  const [suMobile, setSuMobile] = useState('');
   const [suEmail, setSuEmail] = useState('');
   const [suPassword, setSuPassword] = useState('');
   const [suConfirm, setSuConfirm] = useState('');
-  const [suRole, setSuRole] = useState<Role | ''>('');
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    setError('');
+    setSuccess('');
+    setFieldErrors({});
+  };
 
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,37 +58,54 @@ export default function LoginScreen() {
     toast(`Welcome back, ${result.user.name}!`, 'success');
   };
 
+  const validateSignUp = (): boolean => {
+    const errs: FieldErrors = {};
+    if (!suName.trim()) {
+      errs.name = 'Full name is required';
+    } else if (suName.trim().length < 2) {
+      errs.name = 'Name must be at least 2 characters';
+    }
+    if (!suMobile.trim()) {
+      errs.mobile = 'Mobile number is required';
+    } else if (!validateMobile(suMobile.trim())) {
+      errs.mobile = 'Enter a valid 10-digit Indian mobile number (starts with 6-9)';
+    }
+    if (!suEmail.trim()) {
+      errs.email = 'Email is required';
+    } else if (!validateEmail(suEmail.trim())) {
+      errs.email = 'Enter a valid email address';
+    }
+    if (!suPassword) {
+      errs.password = 'Password is required';
+    } else if (suPassword.length < 8) {
+      errs.password = 'Password must be at least 8 characters';
+    }
+    if (!suConfirm) {
+      errs.confirm = 'Please confirm your password';
+    } else if (suPassword !== suConfirm) {
+      errs.confirm = 'Passwords do not match';
+    }
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    if (!suName.trim() || !suEmail.trim() || !suPassword || !suConfirm) {
-      setError('Please fill in all fields');
-      return;
-    }
-    if (suPassword !== suConfirm) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (suPassword.length < 4) {
-      setError('Password must be at least 4 characters');
-      return;
-    }
-    if (!suRole) {
-      setError('Please select a role');
-      return;
-    }
-    const result = signUp(suName.trim(), suEmail.trim(), suPassword, suRole as Role);
+    setFieldErrors({});
+    if (!validateSignUp()) return;
+    const result = signUp(suName.trim(), suEmail.trim(), suPassword, 'citizen', suMobile.trim());
     if (!result.ok) {
       setError(result.error);
       return;
     }
     setSuccess('Account created successfully! Please sign in.');
     setSuName('');
+    setSuMobile('');
     setSuEmail('');
     setSuPassword('');
     setSuConfirm('');
-    setSuRole('');
     setMode('signin');
     setSiEmail(result.account.email);
     toast('Account created! Please sign in.', 'success');
@@ -108,7 +135,7 @@ export default function LoginScreen() {
           {/* Tabs */}
           <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6">
             <button
-              onClick={() => { setMode('signin'); setError(''); setSuccess(''); }}
+              onClick={() => switchMode('signin')}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 mode === 'signin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -116,7 +143,7 @@ export default function LoginScreen() {
               <LogIn className="w-4 h-4" /> Sign In
             </button>
             <button
-              onClick={() => { setMode('signup'); setError(''); setSuccess(''); }}
+              onClick={() => switchMode('signup')}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 mode === 'signup' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -176,7 +203,7 @@ export default function LoginScreen() {
               </button>
               <p className="text-center text-sm text-gray-500">
                 Don't have an account?{' '}
-                <button type="button" onClick={() => { setMode('signup'); setError(''); setSuccess(''); }} className="text-blue-600 font-medium hover:underline">
+                <button type="button" onClick={() => switchMode('signup')} className="text-blue-600 font-medium hover:underline">
                   Sign up
                 </button>
               </p>
@@ -186,8 +213,9 @@ export default function LoginScreen() {
           {/* Sign Up Form */}
           {mode === 'signup' && (
             <form onSubmit={handleSignUp} className="space-y-4">
+              {/* Full Name */}
               <div>
-                <label className="text-sm font-medium text-gray-700">Full Name</label>
+                <label className="text-sm font-medium text-gray-700">Full Name *</label>
                 <div className="mt-1 relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -195,12 +223,36 @@ export default function LoginScreen() {
                     value={suName}
                     onChange={(e) => setSuName(e.target.value)}
                     placeholder="Your full name"
-                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                      fieldErrors.name ? 'border-rose-400' : 'border-gray-300'
+                    }`}
                   />
                 </div>
+                {fieldErrors.name && <p className="mt-1 text-xs text-rose-600">{fieldErrors.name}</p>}
               </div>
+
+              {/* Mobile Number */}
               <div>
-                <label className="text-sm font-medium text-gray-700">Email</label>
+                <label className="text-sm font-medium text-gray-700">Mobile Number *</label>
+                <div className="mt-1 relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="tel"
+                    value={suMobile}
+                    onChange={(e) => setSuMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="10-digit mobile number"
+                    maxLength={10}
+                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                      fieldErrors.mobile ? 'border-rose-400' : 'border-gray-300'
+                    }`}
+                  />
+                </div>
+                {fieldErrors.mobile && <p className="mt-1 text-xs text-rose-600">{fieldErrors.mobile}</p>}
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="text-sm font-medium text-gray-700">Email Address *</label>
                 <div className="mt-1 relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -208,71 +260,59 @@ export default function LoginScreen() {
                     value={suEmail}
                     onChange={(e) => setSuEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                      fieldErrors.email ? 'border-rose-400' : 'border-gray-300'
+                    }`}
                   />
                 </div>
+                {fieldErrors.email && <p className="mt-1 text-xs text-rose-600">{fieldErrors.email}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Password</label>
-                  <div className="mt-1 relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="password"
-                      value={suPassword}
-                      onChange={(e) => setSuPassword(e.target.value)}
-                      placeholder="Password"
-                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Confirm</label>
-                  <div className="mt-1 relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="password"
-                      value={suConfirm}
-                      onChange={(e) => setSuConfirm(e.target.value)}
-                      placeholder="Confirm"
-                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
+
+              {/* Password */}
               <div>
-                <label className="text-sm font-medium text-gray-700">Select Role</label>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {roleOptions.map((opt) => {
-                    const Icon = opt.icon;
-                    const selected = suRole === opt.role;
-                    return (
-                      <button
-                        key={opt.role}
-                        type="button"
-                        onClick={() => setSuRole(opt.role)}
-                        className={`flex items-center gap-2 p-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
-                          selected
-                            ? `border-transparent ring-2 ${opt.ring} bg-gray-50`
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        <Icon className={`w-4 h-4 ${opt.color}`} />
-                        {opt.title}
-                      </button>
-                    );
-                  })}
+                <label className="text-sm font-medium text-gray-700">Password *</label>
+                <div className="mt-1 relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="password"
+                    value={suPassword}
+                    onChange={(e) => setSuPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                      fieldErrors.password ? 'border-rose-400' : 'border-gray-300'
+                    }`}
+                  />
                 </div>
+                {fieldErrors.password && <p className="mt-1 text-xs text-rose-600">{fieldErrors.password}</p>}
               </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="text-sm font-medium text-gray-700">Confirm Password *</label>
+                <div className="mt-1 relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="password"
+                    value={suConfirm}
+                    onChange={(e) => setSuConfirm(e.target.value)}
+                    placeholder="Re-enter your password"
+                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                      fieldErrors.confirm ? 'border-rose-400' : 'border-gray-300'
+                    }`}
+                  />
+                </div>
+                {fieldErrors.confirm && <p className="mt-1 text-xs text-rose-600">{fieldErrors.confirm}</p>}
+              </div>
+
               <button
                 type="submit"
                 className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl font-medium text-sm hover:opacity-90 flex items-center justify-center gap-2 transition-opacity"
               >
-                Create Account <ArrowRight className="w-4 h-4" />
+                Sign Up <ArrowRight className="w-4 h-4" />
               </button>
               <p className="text-center text-sm text-gray-500">
                 Already have an account?{' '}
-                <button type="button" onClick={() => { setMode('signin'); setError(''); setSuccess(''); }} className="text-blue-600 font-medium hover:underline">
+                <button type="button" onClick={() => switchMode('signin')} className="text-blue-600 font-medium hover:underline">
                   Sign in
                 </button>
               </p>
