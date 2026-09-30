@@ -87,6 +87,34 @@ export function clearSession(): void {
   }
 }
 
+const PENDING_KEY = 'jansamvad_pending_v1';
+
+export function savePendingUser(user: User): void {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(user));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadPendingUser(): User | null {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    if (raw) return JSON.parse(raw) as User;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export function clearPendingUser(): void {
+  try {
+    localStorage.removeItem(PENDING_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export function accountToUser(account: Account): User {
   return {
     id: account.id,

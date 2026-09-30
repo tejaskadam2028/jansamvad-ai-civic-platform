@@ -55,7 +55,7 @@ export default function LoginScreen() {
       setError(result.error);
       return;
     }
-    toast(`Welcome back, ${result.user.name}!`, 'success');
+    toast(`Signed in as ${result.user.name}. Choose your role to continue.`, 'success');
   };
 
   const validateSignUp = (): boolean => {

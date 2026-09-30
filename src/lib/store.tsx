@@ -11,13 +11,15 @@ import type {
 } from './types';
 import { getInitialState } from './mockData';
 import { analyzeComplaint } from './ai';
-import { signUp as authSignUp, signIn as authSignIn, saveSession, loadSession, clearSession, accountToUser, type Account } from './auth';
+import { signUp as authSignUp, signIn as authSignIn, saveSession, loadSession, clearSession, accountToUser, savePendingUser, loadPendingUser, clearPendingUser, type Account } from './auth';
 
 const STORAGE_KEY = 'jansamvad_state_v1';
 
 interface StoreContextValue extends AppState {
+  pendingUser: User | null;
   login: (user: User) => void;
   logout: () => void;
+  selectRole: (role: Role) => void;
   signUp: (name: string, email: string, password: string, role: Role, phone: string) => { ok: true; account: Account } | { ok: false; error: string };
   signIn: (email: string, password: string) => { ok: true; user: User } | { ok: false; error: string };
   addComplaint: (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => Complaint;
@@ -59,6 +61,10 @@ function loadState(): AppState {
   return base;
 }
 
+function loadInitialPending(): User | null {
+  return loadPendingUser();
+}
+
 let complaintCounter = 1;
 
 function generateComplaintId(): string {
@@ -68,6 +74,7 @@ function generateComplaintId(): string {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
+  const [pendingUser, setPendingUser] = useState<User | null>(loadInitialPending);
   const [toasts, setToasts] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' }[]>([]);
 
   useEffect(() => {
@@ -98,7 +105,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearSession();
+    clearPendingUser();
+    setPendingUser(null);
     setState((s) => ({ ...s, currentUser: null }));
+  }, []);
+
+  const selectRole = useCallback((role: Role) => {
+    setPendingUser((pending) => {
+      if (!pending) return pending;
+      const user: User = { ...pending, role };
+      saveSession(user);
+      clearPendingUser();
+      setState((s) => ({ ...s, currentUser: user }));
+      return null;
+    });
   }, []);
 
   const signUp = useCallback((name: string, email: string, password: string, role: Role, phone: string) => {
@@ -109,8 +129,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const result = authSignIn(email, password);
     if (result.ok) {
       const user = accountToUser(result.account);
-      saveSession(user);
-      setState((s) => ({ ...s, currentUser: user }));
+      savePendingUser(user);
+      setPendingUser(user);
       return { ok: true as const, user };
     }
     return { ok: false as const, error: result.error };
@@ -374,11 +394,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value: StoreContextValue = {
     ...state,
+    pendingUser,
     toasts,
     toast,
     dismissToast,
     login,
     logout,
+    selectRole,
     signUp,
     signIn,
     addComplaint,
