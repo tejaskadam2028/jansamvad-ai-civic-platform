@@ -10,9 +10,10 @@ import Modal from '@/components/ui/Modal';
 import ComplaintDetailModal from '@/components/ComplaintDetailModal';
 import BarChart from '@/components/ui/Charts';
 import { useStore } from '@/lib/store';
-import { analyzeComplaint, CATEGORY_LIST } from '@/lib/ai';
+import { analyzeComplaintEnhanced, CATEGORY_LIST } from '@/lib/ai';
+import type { EnhancedAIAnalysis } from '@/lib/ai';
 import { formatDate, timeAgo, getLevel } from '@/lib/utils';
-import type { Complaint, AIAnalysis } from '@/lib/types';
+import type { Complaint } from '@/lib/types';
 
 const AREAS = ['Akurdi', 'Nigdi', 'Pimpri', 'Wakad', 'Chinchwad', 'Bhosari', 'Hinjewadi'];
 
@@ -143,7 +144,7 @@ function ReportComplaint({ onNavChange }: { onNavChange: (id: string) => void })
   const [location, setLocation] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [videoName, setVideoName] = useState('');
-  const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
+  const [aiResult, setAiResult] = useState<EnhancedAIAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const [success, setSuccess] = useState<{ id: string; points: number } | null>(null);
@@ -156,7 +157,7 @@ function ReportComplaint({ onNavChange }: { onNavChange: (id: string) => void })
     setAnalyzing(true);
     setShowAI(true);
     setTimeout(() => {
-      const result = analyzeComplaint(description + ' ' + title);
+      const result = analyzeComplaintEnhanced(description + ' ' + title);
       setAiResult(result);
       setAnalyzing(false);
     }, 2000);
@@ -196,7 +197,7 @@ function ReportComplaint({ onNavChange }: { onNavChange: (id: string) => void })
         <h3 className="text-xl font-bold text-gray-900">Complaint Submitted!</h3>
         <div className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between p-2 bg-gray-50 rounded-lg"><span className="text-gray-500">Complaint ID</span><span className="font-semibold text-gray-900">{success.id}</span></div>
-          <div className="flex justify-between p-2 bg-gray-50 rounded-lg"><span className="text-gray-500">Status</span><span className="font-semibold text-blue-600">Submitted</span></div>
+          <div className="flex justify-between p-2 bg-gray-50 rounded-lg"><span className="text-gray-500">Status</span><span className="font-semibold text-blue-600">REGISTERED</span></div>
           <div className="flex justify-between p-2 bg-amber-50 rounded-lg"><span className="text-gray-500">Reward</span><span className="font-semibold text-amber-600">+{success.points} points</span></div>
         </div>
         <div className="flex gap-3 mt-6">
@@ -312,6 +313,11 @@ function ReportComplaint({ onNavChange }: { onNavChange: (id: string) => void })
                 <div><p className="text-xs text-gray-500">Department</p><p className="text-sm font-medium">{aiResult.department}</p></div>
                 <div><p className="text-xs text-gray-500">Priority</p><p className="text-sm font-medium">{aiResult.priority}</p></div>
                 <div><p className="text-xs text-gray-500">Confidence</p><p className="text-sm font-medium text-blue-600">{aiResult.confidence}%</p></div>
+                <div><p className="text-xs text-gray-500">Severity</p><p className="text-sm font-medium text-orange-600">{aiResult.severity}/100</p></div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-blue-100 space-y-2">
+                <div><p className="text-xs text-gray-500">AI Summary</p><p className="text-sm text-gray-700 mt-0.5">{aiResult.summary}</p></div>
+                <div><p className="text-xs text-gray-500">Suggested Action</p><p className="text-sm text-gray-700 mt-0.5">{aiResult.suggestedAction}</p></div>
               </div>
             </div>
             <div className="flex gap-3">
@@ -404,13 +410,13 @@ function TrackComplaint() {
         <label className="text-sm font-medium text-gray-700">Enter Complaint ID</label>
         <div className="flex gap-2 mt-2">
           <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="e.g. JS-1024"
+            placeholder="e.g. JS-2026-000001"
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
           <button onClick={handleSearch} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
             <Search className="w-4 h-4" /> Track
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2">Try: JS-1023, JS-1022, JS-1021, JS-1020, JS-1019</p>
+        <p className="text-xs text-gray-400 mt-2">Enter your complaint ID to track its progress</p>
       </div>
 
       {searched && !result && (
@@ -420,32 +426,112 @@ function TrackComplaint() {
       )}
 
       {result && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-lg font-bold text-gray-900">{result.title}</p>
-              <p className="text-sm text-gray-400">{result.id} · {formatDate(result.createdAt)}</p>
-            </div>
-            <StatusBadge status={result.status} />
-          </div>
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-gray-500">Status Timeline</p>
-            {result.timeline.map((event, i) => (
-              <div key={i} className="flex gap-3">
+        <TrackResult complaint={result} />
+      )}
+    </div>
+  );
+}
+
+// --- Track Result (6-stage pipeline) ---
+const PIPELINE_STAGES = ['REGISTERED', 'AI_ANALYZED', 'VERIFIED', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'];
+
+const STAGE_MAP: Record<string, string> = {
+  'Submitted': 'REGISTERED',
+  'Verified': 'VERIFIED',
+  'Assigned': 'ASSIGNED',
+  'In Progress': 'IN_PROGRESS',
+  'Resolved': 'RESOLVED',
+  'Rejected': 'REJECTED',
+};
+
+function TrackResult({ complaint }: { complaint: Complaint }) {
+  const completedStages = new Set(
+    complaint.timeline.map((e) => STAGE_MAP[e.status] || e.status)
+  );
+  if (complaint.status === 'Rejected') completedStages.add('REJECTED');
+  const currentStageIdx = PIPELINE_STAGES.findIndex((s) => completedStages.has(s) && !PIPELINE_STAGES.slice(0, PIPELINE_STAGES.indexOf(s) + 1).some((later) => completedStages.has(later) && PIPELINE_STAGES.indexOf(later) > PIPELINE_STAGES.indexOf(s)));
+  const lastCompletedIdx = PIPELINE_STAGES.reduce((lastIdx, stage, idx) => completedStages.has(stage) ? idx : lastIdx, -1);
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-lg font-bold text-gray-900">{complaint.title}</p>
+          <p className="text-sm text-gray-400">{complaint.id} · {formatDate(complaint.createdAt)}</p>
+        </div>
+        <StatusBadge status={complaint.status} />
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-gray-500 mb-4">Complaint Progress Pipeline</p>
+        <div className="space-y-0">
+          {PIPELINE_STAGES.map((stage, idx) => {
+            const isCompleted = completedStages.has(stage);
+            const isCurrent = idx === lastCompletedIdx;
+            const isUpcoming = !isCompleted;
+            const isRejected = complaint.status === 'Rejected' && stage !== 'REGISTERED' && stage !== 'AI_ANALYZED';
+            const timelineEvent = complaint.timeline.find((e) => (STAGE_MAP[e.status] || e.status) === stage);
+
+            return (
+              <div key={stage} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <div className={`w-3 h-3 rounded-full ${i === result.timeline.length - 1 ? 'bg-emerald-500' : 'bg-blue-400'}`} />
-                  {i < result.timeline.length - 1 && <div className="w-0.5 h-8 bg-gray-200" />}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
+                    isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' :
+                    isCurrent ? 'bg-blue-500 border-blue-500 text-white animate-pulse' :
+                    isRejected ? 'bg-rose-100 border-rose-300 text-rose-500' :
+                    'bg-gray-50 border-gray-200 text-gray-300'
+                  }`}>
+                    {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                  </div>
+                  {idx < PIPELINE_STAGES.length - 1 && (
+                    <div className={`w-0.5 h-10 ${isCompleted ? 'bg-emerald-400' : 'bg-gray-200'}`} />
+                  )}
                 </div>
-                <div className="pb-2">
-                  <p className="text-sm font-medium text-gray-900">{event.status}</p>
-                  <p className="text-xs text-gray-400">{event.actor} · {formatDate(event.timestamp)}</p>
-                  {event.note && <p className="text-xs text-gray-500 mt-0.5">{event.note}</p>}
+                <div className="pb-4 pt-1">
+                  <p className={`text-sm font-medium ${isCompleted ? 'text-gray-900' : isCurrent ? 'text-blue-600' : 'text-gray-400'}`}>
+                    {stage.replace(/_/g, ' ')}
+                    {isCurrent && <span className="ml-2 text-xs text-blue-500">Current</span>}
+                    {isUpcoming && <span className="ml-2 text-xs text-gray-400">Upcoming</span>}
+                  </p>
+                  {timelineEvent ? (
+                    <>
+                      <p className="text-xs text-gray-400 mt-0.5">{timelineEvent.actor} · {formatDate(timelineEvent.timestamp)}</p>
+                      {timelineEvent.note && <p className="text-xs text-gray-500 mt-0.5">{timelineEvent.note}</p>}
+                    </>
+                  ) : isUpcoming ? (
+                    <p className="text-xs text-gray-400 mt-0.5">Awaiting previous stage completion</p>
+                  ) : null}
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {complaint.status === 'Rejected' && (
+        <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 flex items-center gap-2">
+          <span className="text-sm text-rose-700 font-medium">This complaint was rejected by the Municipal Authority.</span>
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100">
+        <div className="p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-400">Category</p>
+          <p className="text-sm font-medium text-gray-900">{complaint.category}</p>
+        </div>
+        <div className="p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-400">Department</p>
+          <p className="text-sm font-medium text-gray-900">{complaint.department}</p>
+        </div>
+        <div className="p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-400">Location</p>
+          <p className="text-sm font-medium text-gray-900">{complaint.location}</p>
+        </div>
+        <div className="p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-400">Priority</p>
+          <p className="text-sm font-medium text-gray-900">{complaint.priority}</p>
+        </div>
+      </div>
     </div>
   );
 }

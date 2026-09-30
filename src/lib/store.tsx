@@ -59,7 +59,12 @@ function loadState(): AppState {
   return base;
 }
 
-let complaintCounter = 1024;
+let complaintCounter = 1;
+
+function generateComplaintId(): string {
+  const num = String(complaintCounter++).padStart(6, '0');
+  return `JS-2026-${num}`;
+}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
@@ -157,7 +162,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addComplaint = useCallback(
     (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => {
-      const id = `JS-${complaintCounter++}`;
+      const id = generateComplaintId();
       const newComplaint: Complaint = {
         ...c,
         id,
