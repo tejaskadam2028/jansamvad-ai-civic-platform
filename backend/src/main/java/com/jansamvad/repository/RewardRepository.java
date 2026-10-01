@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface RewardRepository extends JpaRepository<RewardEntity, Long> {
-    List<RewardEntity> findByCitizenIdOrderByTimestampDesc(Long citizenId);
+    List<RewardEntity> findByCitizenIdOrderByCreatedAtDesc(Long citizenId);
 }

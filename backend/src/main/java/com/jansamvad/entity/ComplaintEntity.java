@@ -15,6 +15,10 @@ public class ComplaintEntity extends BaseEntity {
     @Column(nullable = false, name = "citizen_id")
     private Long citizenId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "citizen_id", insertable = false, updatable = false)
+    private UserEntity citizen;
+
     @Column(nullable = false, name = "citizen_name")
     private String citizenName;
 
@@ -113,6 +117,8 @@ public class ComplaintEntity extends BaseEntity {
     public void setComplaintNumber(String complaintNumber) { this.complaintNumber = complaintNumber; }
     public Long getCitizenId() { return citizenId; }
     public void setCitizenId(Long citizenId) { this.citizenId = citizenId; }
+    public UserEntity getCitizen() { return citizen; }
+    public void setCitizen(UserEntity citizen) { this.citizen = citizen; }
     public String getCitizenName() { return citizenName; }
     public void setCitizenName(String citizenName) { this.citizenName = citizenName; }
     public String getTitle() { return title; }

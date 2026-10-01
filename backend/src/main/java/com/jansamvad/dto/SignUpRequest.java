@@ -3,10 +3,12 @@ package com.jansamvad.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public class SignUpRequest {
     @NotBlank(message = "Full name is required")
+    @Size(min = 2, message = "Name must be at least 2 characters")
     private String fullName;
 
     @NotBlank(message = "Email is required")
@@ -14,7 +16,7 @@ public class SignUpRequest {
     private String email;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 4, message = "Password must be at least 4 characters")
+    @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
 
     @NotNull(message = "Role is required")
@@ -22,6 +24,10 @@ public class SignUpRequest {
 
     private String phone;
     private String ward;
+
+    @NotBlank(message = "Mobile number is required")
+    @Pattern(regexp = "^[6-9]\\d{9}$", message = "Enter a valid 10-digit Indian mobile number")
+    private String mobileNumber;
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
@@ -33,6 +39,8 @@ public class SignUpRequest {
     public void setRole(String role) { this.role = role; }
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+    public String getMobileNumber() { return mobileNumber; }
+    public void setMobileNumber(String mobileNumber) { this.mobileNumber = mobileNumber; }
     public String getWard() { return ward; }
     public void setWard(String ward) { this.ward = ward; }
 }

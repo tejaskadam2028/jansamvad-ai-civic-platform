@@ -13,6 +13,10 @@ public class NotificationEntity extends BaseEntity {
     @Column(nullable = false, name = "user_id")
     private Long userId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private UserEntity user;
+
     @Column(nullable = false)
     private String title;
 
@@ -32,6 +36,8 @@ public class NotificationEntity extends BaseEntity {
     public void setRole(UserEntity.Role role) { this.role = role; }
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
+    public UserEntity getUser() { return user; }
+    public void setUser(UserEntity user) { this.user = user; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getMessage() { return message; }
