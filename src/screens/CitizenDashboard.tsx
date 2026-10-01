@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, FilePlus, ListChecks, Search, Trophy, Bell, User as UserIcon,
   MapPin, Upload, Image as ImageIcon, Video, Cpu, CheckCircle2, Sparkles, TrendingUp, Award, Clock,
@@ -29,7 +29,13 @@ const navItems: NavItem[] = [
 
 export default function CitizenDashboard() {
   const [activeNav, setActiveNav] = useState('dashboard');
-  const { currentUser, complaints, rewards, citizens } = useStore();
+  const { currentUser, complaints, rewards, citizens, fetchUserComplaints } = useStore();
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchUserComplaints(currentUser.id);
+    }
+  }, [currentUser?.id, fetchUserComplaints]);
 
   const myComplaints = complaints.filter((c) => c.citizenId === currentUser?.id);
   const myRewards = rewards.filter((r) => r.citizenId === currentUser?.id);
@@ -163,24 +169,28 @@ function ReportComplaint({ onNavChange }: { onNavChange: (id: string) => void })
     }, 2000);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!currentUser || !aiResult) return;
-    const complaint = addComplaint({
-      title: title.trim(),
-      description: description.trim(),
-      category: aiResult.category,
-      department: aiResult.department,
-      priority: aiResult.priority,
-      confidence: aiResult.confidence,
-      location: location || currentUser.area,
-      coordinates: { lat: 18.65 + Math.random() * 0.02, lng: 73.76 + Math.random() * 0.03 },
-      citizenId: currentUser.id,
-      citizenName: currentUser.name,
-      imageUrl: imageUrl || undefined,
-      videoName: videoName || undefined,
-    });
-    setSuccess({ id: complaint.id, points: 50 });
-    toast(`Complaint ${complaint.id} submitted successfully! +50 points`, 'success');
+    try {
+      const complaint = await addComplaint({
+        title: title.trim(),
+        description: description.trim(),
+        category: aiResult.category,
+        department: aiResult.department,
+        priority: aiResult.priority,
+        confidence: aiResult.confidence,
+        location: location || currentUser.area,
+        coordinates: { lat: 18.65 + Math.random() * 0.02, lng: 73.76 + Math.random() * 0.03 },
+        citizenId: currentUser.id,
+        citizenName: currentUser.name,
+        imageUrl: imageUrl || undefined,
+        videoName: videoName || undefined,
+      });
+      setSuccess({ id: complaint.id, points: 50 });
+      toast(`Complaint ${complaint.id} submitted successfully! +50 points`, 'success');
+    } catch {
+      toast('Unable to connect to the server. Please try again.', 'warning');
+    }
   };
 
   const handleReset = () => {
@@ -392,16 +402,26 @@ function MyComplaints({ complaints }: { complaints: Complaint[] }) {
 
 // --- Track Complaint ---
 function TrackComplaint() {
-  const { complaints } = useStore();
+  const { complaints, fetchComplaint } = useStore();
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<Complaint | null>(null);
   const [searched, setSearched] = useState(false);
+  const [searching, setSearching] = useState(false);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!query.trim()) return;
-    const found = complaints.find((c) => c.id.toLowerCase() === query.trim().toLowerCase());
-    setResult(found || null);
+    setSearching(true);
+    const local = complaints.find((c) => c.id.toLowerCase() === query.trim().toLowerCase());
+    if (local) {
+      setResult(local);
+      setSearched(true);
+      setSearching(false);
+      return;
+    }
+    const backend = await fetchComplaint(query.trim());
+    setResult(backend);
     setSearched(true);
+    setSearching(false);
   };
 
   return (
@@ -412,8 +432,8 @@ function TrackComplaint() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder="e.g. JS-2026-000001"
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          <button onClick={handleSearch} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
-            <Search className="w-4 h-4" /> Track
+          <button onClick={handleSearch} disabled={searching} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+            <Search className="w-4 h-4" /> {searching ? 'Searching...' : 'Track'}
           </button>
         </div>
         <p className="text-xs text-gray-400 mt-2">Enter your complaint ID to track its progress</p>

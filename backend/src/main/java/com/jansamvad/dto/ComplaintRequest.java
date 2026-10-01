@@ -21,6 +21,17 @@ public class ComplaintRequest {
 
     private List<String> mediaUrls;
 
+    private String priority;
+    private String department;
+
+    private String aiCategory;
+    private String aiDepartment;
+    private String aiPriority;
+    private Double aiConfidence;
+    private Integer aiSeverity;
+    private String aiSummary;
+    private String aiSuggestedAction;
+
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }
@@ -39,4 +50,22 @@ public class ComplaintRequest {
     public void setVideoName(String videoName) { this.videoName = videoName; }
     public List<String> getMediaUrls() { return mediaUrls; }
     public void setMediaUrls(List<String> mediaUrls) { this.mediaUrls = mediaUrls; }
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+    public String getAiCategory() { return aiCategory; }
+    public void setAiCategory(String aiCategory) { this.aiCategory = aiCategory; }
+    public String getAiDepartment() { return aiDepartment; }
+    public void setAiDepartment(String aiDepartment) { this.aiDepartment = aiDepartment; }
+    public String getAiPriority() { return aiPriority; }
+    public void setAiPriority(String aiPriority) { this.aiPriority = aiPriority; }
+    public Double getAiConfidence() { return aiConfidence; }
+    public void setAiConfidence(Double aiConfidence) { this.aiConfidence = aiConfidence; }
+    public Integer getAiSeverity() { return aiSeverity; }
+    public void setAiSeverity(Integer aiSeverity) { this.aiSeverity = aiSeverity; }
+    public String getAiSummary() { return aiSummary; }
+    public void setAiSummary(String aiSummary) { this.aiSummary = aiSummary; }
+    public String getAiSuggestedAction() { return aiSuggestedAction; }
+    public void setAiSuggestedAction(String aiSuggestedAction) { this.aiSuggestedAction = aiSuggestedAction; }
 }

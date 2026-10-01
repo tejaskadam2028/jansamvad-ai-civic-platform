@@ -151,3 +151,93 @@ export async function isBackendAvailable(): Promise<boolean> {
     return false;
   }
 }
+
+// ---- Complaint API ----
+
+export interface ComplaintRequestDto {
+  title: string;
+  description: string;
+  category: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  imageUrl?: string;
+  videoName?: string;
+  priority?: string;
+  department?: string;
+  aiCategory?: string;
+  aiDepartment?: string;
+  aiPriority?: string;
+  aiConfidence?: number;
+  aiSeverity?: number;
+  aiSummary?: string;
+  aiSuggestedAction?: string;
+}
+
+export interface ComplaintResponseDto {
+  id: number;
+  complaintNumber: string;
+  citizenId: number;
+  citizenName: string;
+  title: string;
+  description: string;
+  category: string;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  priority: string | null;
+  department: string | null;
+  aiCategory: string | null;
+  aiDepartment: string | null;
+  aiPriority: string | null;
+  aiConfidence: number | null;
+  aiSeverity: number | null;
+  aiSuggestedAction: string | null;
+  aiSummary: string | null;
+  status: string;
+  taskStatus: string | null;
+  assignedWorkerId: number | null;
+  assignedWorkerName: string | null;
+  imageUrl: string | null;
+  videoName: string | null;
+  beforePhotoUrl: string | null;
+  afterPhotoUrl: string | null;
+  resolutionNote: string | null;
+  rewardPoints: number;
+  createdAt: string;
+  updatedAt: string | null;
+  resolvedAt: string | null;
+  timeline: { status: string; timestamp: string; actor: string; note: string | null }[];
+}
+
+export async function apiCreateComplaint(req: ComplaintRequestDto): Promise<ComplaintResponseDto> {
+  const res = await fetch(`${API_BASE}/api/complaints`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(req),
+  });
+  return handleResponse<ComplaintResponseDto>(res);
+}
+
+export async function apiGetUserComplaints(userId: string): Promise<ComplaintResponseDto[]> {
+  const res = await fetch(`${API_BASE}/api/complaints/user/${userId}`, {
+    headers: { ...authHeaders() },
+  });
+  return handleResponse<ComplaintResponseDto[]>(res);
+}
+
+export async function apiGetComplaint(id: string): Promise<ComplaintResponseDto> {
+  const res = await fetch(`${API_BASE}/api/complaints/${id}`, {
+    headers: { ...authHeaders() },
+  });
+  return handleResponse<ComplaintResponseDto>(res);
+}
+
+export async function apiUpdateComplaintStatus(id: string, status: string, taskStatus?: string, note?: string): Promise<ComplaintResponseDto> {
+  const res = await fetch(`${API_BASE}/api/complaints/${id}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ status, taskStatus, note }),
+  });
+  return handleResponse<ComplaintResponseDto>(res);
+}

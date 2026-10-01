@@ -43,10 +43,18 @@ public class ComplaintService {
         complaint.setLongitude(request.getLongitude());
         complaint.setImageUrl(request.getImageUrl());
         complaint.setVideoName(request.getVideoName());
-        complaint.setPriority(ComplaintEntity.Priority.MEDIUM);
-        complaint.setDepartment("");
+        complaint.setPriority(parsePriority(request.getPriority(), ComplaintEntity.Priority.MEDIUM));
+        complaint.setDepartment(request.getDepartment() != null ? request.getDepartment() : "");
         complaint.setStatus(ComplaintEntity.Status.REGISTERED);
         complaint.setRewardPoints(50);
+
+        if (request.getAiCategory() != null) complaint.setAiCategory(request.getAiCategory());
+        if (request.getAiDepartment() != null) complaint.setAiDepartment(request.getAiDepartment());
+        if (request.getAiPriority() != null) complaint.setAiPriority(parsePriority(request.getAiPriority(), null));
+        if (request.getAiConfidence() != null) complaint.setAiConfidence(request.getAiConfidence());
+        if (request.getAiSeverity() != null) complaint.setAiSeverity(request.getAiSeverity());
+        if (request.getAiSummary() != null) complaint.setAiSummary(request.getAiSummary());
+        if (request.getAiSuggestedAction() != null) complaint.setAiSuggestedAction(request.getAiSuggestedAction());
 
         ComplaintEntity saved = complaintRepository.save(complaint);
         return toResponse(saved);
@@ -141,5 +149,14 @@ public class ComplaintService {
 
     private String generateComplaintNumber() {
         return "JS-2026-" + String.format("%06d", System.currentTimeMillis() % 1000000);
+    }
+
+    private ComplaintEntity.Priority parsePriority(String value, ComplaintEntity.Priority defaultValue) {
+        if (value == null || value.isBlank()) return defaultValue;
+        try {
+            return ComplaintEntity.Priority.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return defaultValue;
+        }
     }
 }

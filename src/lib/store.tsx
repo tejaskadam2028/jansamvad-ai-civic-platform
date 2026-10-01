@@ -12,7 +12,7 @@ import type {
 import { getInitialState } from './mockData';
 import { analyzeComplaint } from './ai';
 import { signUp as authSignUp, signIn as authSignIn, saveSession, loadSession, clearSession, accountToUser, savePendingUser, loadPendingUser, clearPendingUser, clearToken, type Account } from './auth';
-import { apiSignup, apiSignin, apiGetMe, getToken } from './api';
+import { apiSignup, apiSignin, apiGetMe, getToken, apiCreateComplaint, apiGetUserComplaints, apiGetComplaint, type ComplaintResponseDto } from './api';
 
 const STORAGE_KEY = 'jansamvad_state_v1';
 
@@ -23,7 +23,9 @@ interface StoreContextValue extends AppState {
   selectRole: (role: Role) => void;
   signUp: (name: string, email: string, password: string, role: Role, phone: string) => Promise<{ ok: true; account?: Account } | { ok: false; error: string }>;
   signIn: (email: string, password: string) => Promise<{ ok: true; user: User } | { ok: false; error: string }>;
-  addComplaint: (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => Complaint;
+  addComplaint: (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => Promise<Complaint>;
+  fetchUserComplaints: (userId: string) => Promise<void>;
+  fetchComplaint: (id: string) => Promise<Complaint | null>;
   updateComplaint: (id: string, patch: Partial<Complaint>) => void;
   addTimelineEvent: (id: string, status: string, actor: string, note?: string) => void;
   addNotification: (n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
@@ -71,6 +73,60 @@ let complaintCounter = 1;
 function generateComplaintId(): string {
   const num = String(complaintCounter++).padStart(6, '0');
   return `JS-2026-${num}`;
+}
+
+function mapBackendStatus(status: string): Complaint['status'] {
+  const map: Record<string, Complaint['status']> = {
+    'REGISTERED': 'Submitted',
+    'AI_ANALYZED': 'Submitted',
+    'VERIFIED': 'Verified',
+    'ASSIGNED': 'Assigned',
+    'IN_PROGRESS': 'In Progress',
+    'RESOLVED': 'Resolved',
+    'REJECTED': 'Rejected',
+  };
+  return map[status] || 'Submitted';
+}
+
+function mapBackendPriority(priority: string | null): Priority {
+  if (!priority) return 'Medium';
+  const p = priority.toUpperCase();
+  if (p === 'HIGH') return 'High';
+  if (p === 'LOW') return 'Low';
+  return 'Medium';
+}
+
+function mapBackendComplaint(dto: ComplaintResponseDto): Complaint {
+  return {
+    id: dto.complaintNumber || String(dto.id),
+    title: dto.title,
+    description: dto.description,
+    category: dto.category,
+    department: dto.department || '',
+    priority: mapBackendPriority(dto.priority),
+    confidence: dto.aiConfidence != null ? dto.aiConfidence : 0,
+    location: dto.location || '',
+    coordinates: { lat: dto.latitude || 0, lng: dto.longitude || 0 },
+    citizenId: String(dto.citizenId),
+    citizenName: dto.citizenName,
+    status: mapBackendStatus(dto.status),
+    taskStatus: dto.taskStatus as Complaint['taskStatus'] || undefined,
+    assignedWorkforceId: dto.assignedWorkerId != null ? String(dto.assignedWorkerId) : undefined,
+    assignedWorkforceName: dto.assignedWorkerName || undefined,
+    imageUrl: dto.imageUrl || undefined,
+    videoName: dto.videoName || undefined,
+    beforePhotoUrl: dto.beforePhotoUrl || undefined,
+    afterPhotoUrl: dto.afterPhotoUrl || undefined,
+    resolutionNote: dto.resolutionNote || undefined,
+    rewardPoints: dto.rewardPoints,
+    createdAt: dto.createdAt ? new Date(dto.createdAt).getTime() : Date.now(),
+    timeline: (dto.timeline || []).map((t) => ({
+      status: t.status,
+      timestamp: t.timestamp ? new Date(t.timestamp).getTime() : Date.now(),
+      actor: t.actor,
+      note: t.note || undefined,
+    })),
+  };
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -212,34 +268,90 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addComplaint = useCallback(
-    (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => {
-      const id = generateComplaintId();
-      const newComplaint: Complaint = {
-        ...c,
-        id,
-        status: 'Submitted',
-        taskStatus: undefined,
-        rewardPoints: 50,
-        createdAt: Date.now(),
-        timeline: [{ status: 'Submitted', timestamp: Date.now(), actor: c.citizenName }],
-      };
-      setState((s) => ({
-        ...s,
-        complaints: [newComplaint, ...s.complaints],
-        rewards: [
-          { id: `r${Date.now()}${Math.random()}`, citizenId: c.citizenId, points: 50, reason: 'Complaint submitted', complaintId: id, timestamp: Date.now() },
-          ...s.rewards,
-        ],
-        notifications: [
-          { id: `n${Date.now()}${Math.random()}`, role: 'authority' as Role, userId: 'a1', title: 'New Complaint', message: `New complaint ${id} submitted by ${c.citizenName}.`, read: false, timestamp: Date.now(), type: 'info' },
-          { id: `n${Date.now()}${Math.random()}1`, role: 'citizen' as Role, userId: c.citizenId, title: 'Complaint Submitted', message: `Your complaint ${id} has been submitted. +50 reward points!`, read: false, timestamp: Date.now(), type: 'success' },
-          ...s.notifications,
-        ],
-      }));
-      return newComplaint;
+    async (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => {
+      try {
+        const dto = await apiCreateComplaint({
+          title: c.title,
+          description: c.description,
+          category: c.category,
+          location: c.location,
+          latitude: c.coordinates.lat,
+          longitude: c.coordinates.lng,
+          imageUrl: c.imageUrl,
+          videoName: c.videoName,
+          priority: c.priority.toUpperCase(),
+          department: c.department,
+          aiCategory: c.category,
+          aiDepartment: c.department,
+          aiPriority: c.priority.toUpperCase(),
+          aiConfidence: c.confidence,
+        });
+        const newComplaint = mapBackendComplaint(dto);
+        setState((s) => ({
+          ...s,
+          complaints: [newComplaint, ...s.complaints],
+          rewards: [
+            { id: `r${Date.now()}${Math.random()}`, citizenId: c.citizenId, points: 50, reason: 'Complaint submitted', complaintId: newComplaint.id, timestamp: Date.now() },
+            ...s.rewards,
+          ],
+          notifications: [
+            { id: `n${Date.now()}${Math.random()}`, role: 'citizen' as Role, userId: c.citizenId, title: 'Complaint Submitted', message: `Your complaint ${newComplaint.id} has been submitted. +50 reward points!`, read: false, timestamp: Date.now(), type: 'success' },
+            ...s.notifications,
+          ],
+        }));
+        return newComplaint;
+      } catch {
+        // Fallback to local in-memory creation
+        const id = generateComplaintId();
+        const newComplaint: Complaint = {
+          ...c,
+          id,
+          status: 'Submitted',
+          taskStatus: undefined,
+          rewardPoints: 50,
+          createdAt: Date.now(),
+          timeline: [{ status: 'Submitted', timestamp: Date.now(), actor: c.citizenName }],
+        };
+        setState((s) => ({
+          ...s,
+          complaints: [newComplaint, ...s.complaints],
+          rewards: [
+            { id: `r${Date.now()}${Math.random()}`, citizenId: c.citizenId, points: 50, reason: 'Complaint submitted', complaintId: id, timestamp: Date.now() },
+            ...s.rewards,
+          ],
+          notifications: [
+            { id: `n${Date.now()}${Math.random()}`, role: 'authority' as Role, userId: 'a1', title: 'New Complaint', message: `New complaint ${id} submitted by ${c.citizenName}.`, read: false, timestamp: Date.now(), type: 'info' },
+            { id: `n${Date.now()}${Math.random()}1`, role: 'citizen' as Role, userId: c.citizenId, title: 'Complaint Submitted', message: `Your complaint ${id} has been submitted. +50 reward points!`, read: false, timestamp: Date.now(), type: 'success' },
+            ...s.notifications,
+          ],
+        }));
+        return newComplaint;
+      }
     },
     []
   );
+
+  const fetchUserComplaints = useCallback(async (userId: string) => {
+    try {
+      const dtos = await apiGetUserComplaints(userId);
+      const complaints = dtos.map(mapBackendComplaint);
+      setState((s) => {
+        const otherComplaints = s.complaints.filter((c) => c.citizenId !== userId);
+        return { ...s, complaints: [...complaints, ...otherComplaints] };
+      });
+    } catch {
+      // Backend unavailable — keep existing in-memory complaints
+    }
+  }, []);
+
+  const fetchComplaint = useCallback(async (id: string): Promise<Complaint | null> => {
+    try {
+      const dto = await apiGetComplaint(id);
+      return mapBackendComplaint(dto);
+    } catch {
+      return null;
+    }
+  }, []);
 
   const updateComplaint = useCallback((id: string, patch: Partial<Complaint>) => {
     setState((s) => ({
@@ -435,6 +547,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     addComplaint,
+    fetchUserComplaints,
+    fetchComplaint,
     updateComplaint,
     addTimelineEvent,
     addNotification,
