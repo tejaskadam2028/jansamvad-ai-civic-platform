@@ -43,14 +43,14 @@ export default function LoginScreen() {
     setFieldErrors({});
   };
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!siEmail.trim() || !siPassword) {
       setError('Please enter your email and password');
       return;
     }
-    const result = signIn(siEmail.trim(), siPassword);
+    const result = await signIn(siEmail.trim(), siPassword);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -89,13 +89,13 @@ export default function LoginScreen() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setFieldErrors({});
     if (!validateSignUp()) return;
-    const result = signUp(suName.trim(), suEmail.trim(), suPassword, 'citizen', suMobile.trim());
+    const result = await signUp(suName.trim(), suEmail.trim(), suPassword, 'citizen', suMobile.trim());
     if (!result.ok) {
       setError(result.error);
       return;
@@ -107,7 +107,7 @@ export default function LoginScreen() {
     setSuPassword('');
     setSuConfirm('');
     setMode('signin');
-    setSiEmail(result.account.email);
+    setSiEmail(suEmail.trim());
     toast('Account created! Please sign in.', 'success');
   };
 

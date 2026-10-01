@@ -4,9 +4,11 @@ import com.jansamvad.dto.ComplaintRequest;
 import com.jansamvad.dto.ComplaintResponse;
 import com.jansamvad.dto.StatusUpdateRequest;
 import com.jansamvad.service.ComplaintService;
+import com.jansamvad.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,15 +18,18 @@ import java.util.List;
 public class ComplaintController {
 
     private final ComplaintService complaintService;
+    private final UserService userService;
 
-    public ComplaintController(ComplaintService complaintService) {
+    public ComplaintController(ComplaintService complaintService, UserService userService) {
         this.complaintService = complaintService;
+        this.userService = userService;
     }
 
     @PostMapping
     public ResponseEntity<ComplaintResponse> createComplaint(
-            @RequestHeader("X-User-Id") Long userId,
+            Authentication authentication,
             @Valid @RequestBody ComplaintRequest request) {
+        Long userId = getUserIdFromAuth(authentication);
         ComplaintResponse response = complaintService.createComplaint(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -49,5 +54,10 @@ public class ComplaintController {
             @PathVariable Long id,
             @Valid @RequestBody StatusUpdateRequest request) {
         return ResponseEntity.ok(complaintService.updateStatus(id, request.getStatus(), request.getTaskStatus(), request.getNote()));
+    }
+
+    private Long getUserIdFromAuth(Authentication authentication) {
+        String email = authentication.getName();
+        return userService.getUserByEmail(email).getId();
     }
 }

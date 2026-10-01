@@ -11,7 +11,8 @@ import type {
 } from './types';
 import { getInitialState } from './mockData';
 import { analyzeComplaint } from './ai';
-import { signUp as authSignUp, signIn as authSignIn, saveSession, loadSession, clearSession, accountToUser, savePendingUser, loadPendingUser, clearPendingUser, type Account } from './auth';
+import { signUp as authSignUp, signIn as authSignIn, saveSession, loadSession, clearSession, accountToUser, savePendingUser, loadPendingUser, clearPendingUser, clearToken, type Account } from './auth';
+import { apiSignup, apiSignin, apiGetMe, getToken } from './api';
 
 const STORAGE_KEY = 'jansamvad_state_v1';
 
@@ -20,8 +21,8 @@ interface StoreContextValue extends AppState {
   login: (user: User) => void;
   logout: () => void;
   selectRole: (role: Role) => void;
-  signUp: (name: string, email: string, password: string, role: Role, phone: string) => { ok: true; account: Account } | { ok: false; error: string };
-  signIn: (email: string, password: string) => { ok: true; user: User } | { ok: false; error: string };
+  signUp: (name: string, email: string, password: string, role: Role, phone: string) => Promise<{ ok: true; account?: Account } | { ok: false; error: string }>;
+  signIn: (email: string, password: string) => Promise<{ ok: true; user: User } | { ok: false; error: string }>;
   addComplaint: (c: Omit<Complaint, 'id' | 'status' | 'timeline' | 'createdAt' | 'rewardPoints'>) => Complaint;
   updateComplaint: (id: string, patch: Partial<Complaint>) => void;
   addTimelineEvent: (id: string, status: string, actor: string, note?: string) => void;
@@ -86,6 +87,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [state]);
 
+  useEffect(() => {
+    const token = getToken();
+    if (token && !loadSession() && !loadPendingUser()) {
+      apiGetMe()
+        .then((user) => {
+          savePendingUser(user);
+          setPendingUser(user);
+        })
+        .catch(() => {
+          clearToken();
+        });
+    }
+  }, []);
+
   const toast = useCallback((message: string, type: 'info' | 'success' | 'warning' = 'info') => {
     const id = `t${Date.now()}${Math.random()}`;
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -106,6 +121,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     clearSession();
     clearPendingUser();
+    clearToken();
     setPendingUser(null);
     setState((s) => ({ ...s, currentUser: null }));
   }, []);
@@ -121,19 +137,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const signUp = useCallback((name: string, email: string, password: string, role: Role, phone: string) => {
-    return authSignUp(name, email, password, role, phone);
+  const signUp = useCallback(async (name: string, email: string, password: string, role: Role, phone: string) => {
+    try {
+      const result = await apiSignup({ fullName: name, email, password, mobileNumber: phone });
+      return { ok: true as const };
+    } catch {
+      // Fallback to localStorage
+      const result = authSignUp(name, email, password, role, phone);
+      if (!result.ok) return { ok: false as const, error: result.error };
+      return { ok: true as const, account: result.account };
+    }
   }, []);
 
-  const signIn = useCallback((email: string, password: string) => {
-    const result = authSignIn(email, password);
-    if (result.ok) {
+  const signIn = useCallback(async (email: string, password: string) => {
+    try {
+      const result = await apiSignin({ email, password });
+      const user = result.user;
+      savePendingUser(user);
+      setPendingUser(user);
+      return { ok: true as const, user };
+    } catch {
+      // Fallback to localStorage
+      const result = authSignIn(email, password);
+      if (!result.ok) return { ok: false as const, error: result.error };
       const user = accountToUser(result.account);
       savePendingUser(user);
       setPendingUser(user);
       return { ok: true as const, user };
     }
-    return { ok: false as const, error: result.error };
   }, []);
 
   const addNotification = useCallback((n: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {

@@ -12,6 +12,7 @@ export interface Account {
 
 const ACCOUNTS_KEY = 'jansamvad_accounts_v1';
 const SESSION_KEY = 'jansamvad_session_v1';
+const TOKEN_KEY = 'jansamvad_jwt_token_v1';
 
 function loadAccounts(): Account[] {
   try {
@@ -82,6 +83,30 @@ export function loadSession(): User | null {
 export function clearSession(): void {
   try {
     localStorage.removeItem(SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function saveToken(token: string): void {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // ignore
+  }
+}
+
+export function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
   } catch {
     // ignore
   }

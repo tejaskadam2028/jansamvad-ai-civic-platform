@@ -4,6 +4,7 @@ import com.jansamvad.dto.SignUpRequest;
 import com.jansamvad.dto.UserResponse;
 import com.jansamvad.entity.UserEntity;
 import com.jansamvad.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +15,11 @@ import java.time.Instant;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public UserResponse createUser(SignUpRequest request) {
@@ -30,7 +33,7 @@ public class UserService {
         UserEntity user = new UserEntity();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
-        user.setPasswordHash(request.getPassword());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setMobileNumber(request.getMobileNumber());
         user.setRole(parseRole(request.getRole()));
         user.setWard(request.getWard());

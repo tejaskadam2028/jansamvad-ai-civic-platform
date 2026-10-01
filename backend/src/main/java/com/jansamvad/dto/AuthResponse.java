@@ -8,9 +8,9 @@ public class AuthResponse {
     private String role;
     private String ward;
     private String department;
-    private String phone;
+    private String mobileNumber;
 
-    public AuthResponse(String token, String userId, String fullName, String email, String role, String ward, String department, String phone) {
+    public AuthResponse(String token, String userId, String fullName, String email, String role, String ward, String department, String mobileNumber) {
         this.token = token;
         this.userId = userId;
         this.fullName = fullName;
@@ -18,7 +18,7 @@ public class AuthResponse {
         this.role = role;
         this.ward = ward;
         this.department = department;
-        this.phone = phone;
+        this.mobileNumber = mobileNumber;
     }
 
     public String getToken() { return token; }
@@ -35,6 +35,6 @@ public class AuthResponse {
     public void setWard(String ward) { this.ward = ward; }
     public String getDepartment() { return department; }
     public void setDepartment(String department) { this.department = department; }
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
+    public String getMobileNumber() { return mobileNumber; }
+    public void setMobileNumber(String mobileNumber) { this.mobileNumber = mobileNumber; }
 }
